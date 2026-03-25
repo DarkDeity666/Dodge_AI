@@ -1,0 +1,21 @@
+{
+  "name": "o2c-graph-backend",
+  "version": "1.0.0",
+  "description": "Order-to-Cash Graph System Backend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.20.1",
+    "@google/generative-ai": "^0.24.1",
+    "better-sqlite3": "^9.6.0",
+    "cors": "^2.8.6",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
+  }
+}

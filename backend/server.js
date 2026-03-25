@@ -16,8 +16,8 @@ if (!process.env.GOOGLE_API_KEY) {
 }
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
-// FIXED: was "gemini-pro" (deprecated) -> now "gemini-1.5-flash"
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+// FIXED: was "gemini-pro" (deprecated) -> now "gemini-2.5-flash"
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 app.use(cors());
 app.use(express.json());
@@ -77,30 +77,37 @@ app.post('/api/chat', async (req, res) => {
     }
 
     // Check if Gemini wants to run a query
-    const jsonMatch = text.match(/\{[\s\S]*?"action"\s*:\s*"query"[\s\S]*?\}/);
-    if (jsonMatch) {
-      let action;
-      try { action = JSON.parse(jsonMatch[0]); } catch (e) {}
-
-      if (action && action.action === 'query') {
-        const data = runQuery(db, action.queryName, action.params || {});
-
-        // Pass 2: analyze the results
-        const analysis = await model.generateContent(
-          `The user asked: "${userText}"\n\nQuery results:\n${JSON.stringify(data, null, 2)}\n\nAnalyze these results and answer the user. Format amounts in INR. Be specific and concise.`
-        );
-        const finalMessage = analysis.response.text();
-
-        const highlightIds = extractHighlightIds(action.queryName, data);
-
-        return res.json({
-          type: 'query_result',
-          queryName: action.queryName,
-          message: finalMessage,
-          queryResult: data,
-          highlightIds,
-        });
+    let action;
+    try {
+      // Strip markdown block formatting if present
+      const cleanText = text.replace(/```[a-z]*\n?/gi, '').replace(/```/g, '').trim();
+      action = JSON.parse(cleanText);
+    } catch (e) {
+      // Fallback regex if there's extra text: match from first { to last }
+      const match = text.match(/\{[\s\S]*"action"\s*:\s*"query"[\s\S]*\}/);
+      if (match) {
+        try { action = JSON.parse(match[0]); } catch (err) {}
       }
+    }
+
+    if (action && action.action === 'query') {
+      const data = runQuery(db, action.queryName, action.params || {});
+
+      // Pass 2: analyze the results
+      const analysis = await model.generateContent(
+        `The user asked: "${userText}"\n\nQuery results:\n${JSON.stringify(data, null, 2)}\n\nAnalyze these results and answer the user. Format amounts in INR. Be specific and concise.`
+      );
+      const finalMessage = analysis.response.text();
+
+      const highlightIds = extractHighlightIds(action.queryName, data);
+
+      return res.json({
+        type: 'query_result',
+        queryName: action.queryName,
+        message: finalMessage,
+        queryResult: data,
+        highlightIds,
+      });
     }
 
     res.json({ type: 'answer', message: text });

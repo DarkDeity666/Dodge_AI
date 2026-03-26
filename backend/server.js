@@ -145,8 +145,8 @@ function extractHighlightIds(queryName, result) {
   return Array.from(ids);
 }
 
-app.listen(port, function() {
-  console.log('\n🚀 O2C Graph API running at http://localhost:' + port);
+app.listen(port, "0.0.0.0", () => {
+  console.log(`\n🚀 O2C Graph API running on port ${port}`);
   console.log('   Model: gemini-1.5-flash');
   console.log('   GET  /api/graph');
   console.log('   GET  /api/stats');

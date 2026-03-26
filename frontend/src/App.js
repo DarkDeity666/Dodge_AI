@@ -5,7 +5,7 @@ import ChatPanel from './components/ChatPanel';
 import NodePanel from './components/NodePanel';
 import StatsBar from './components/StatsBar';
 import Legend from './components/Legend';
-import { API_BASE } from './utils/constants';
+import API_URL from './config/api';
 
 const INITIAL_MESSAGES = [{
   role: 'assistant',
@@ -25,24 +25,28 @@ export default function App() {
 
   // Load graph + stats
   useEffect(() => {
-    fetch(`${API_BASE}/api/graph`)
-      .then(r => r.json())
-      .then(data => {
-        // Enrich nodes with connection counts
-        const connCount = {};
-        data.edges.forEach(e => {
-          connCount[e.source] = (connCount[e.source] || 0) + 1;
-          connCount[e.target] = (connCount[e.target] || 0) + 1;
-        });
-        data.nodes.forEach(n => { n.connections = connCount[n.id] || 0; });
-        setGraphData(data);
+    fetch(`${API_URL}/`) // Backend health check fallback
+      .then(() => {
+        fetch(`${API_URL}/api/graph`)
+          .then(r => r.json())
+          .then(data => {
+            // Enrich nodes with connection counts
+            const connCount = {};
+            data.edges.forEach(e => {
+              connCount[e.source] = (connCount[e.source] || 0) + 1;
+              connCount[e.target] = (connCount[e.target] || 0) + 1;
+            });
+            data.nodes.forEach(n => { n.connections = connCount[n.id] || 0; });
+            setGraphData(data);
+          })
+          .catch(() => setApiError(true));
+
+        fetch(`${API_URL}/api/stats`)
+          .then(r => r.json())
+          .then(setStats)
+          .catch(() => {});
       })
       .catch(() => setApiError(true));
-
-    fetch(`${API_BASE}/api/stats`)
-      .then(r => r.json())
-      .then(setStats)
-      .catch(() => {});
   }, []);
 
   const handleNodeClick = useCallback((node) => {
@@ -61,7 +65,7 @@ export default function App() {
         .slice(-14)
         .map(m => ({ role: m.role, content: m.content }));
 
-      const resp = await fetch(`${API_BASE}/api/chat`, {
+      const resp = await fetch(`${API_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: history }),
@@ -90,7 +94,7 @@ export default function App() {
     } catch (err) {
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: 'Error connecting to the backend. Please ensure the backend server is running on port 3001.',
+        content: `Error connecting to the backend. Please ensure the backend server is running at ${API_URL}.`,
         type: 'error',
       }]);
     }
@@ -153,7 +157,7 @@ export default function App() {
             <div style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid #6c63ff', borderTopColor: 'transparent', animation: 'spin 0.7s linear infinite' }} />
           )}
           {apiError && (
-            <span style={{ fontSize: 11, color: '#ef4444' }}>⚠ Backend offline — run: cd backend && npm start</span>
+            <span style={{ fontSize: 11, color: '#ef4444' }}>⚠ Backend offline — check connection to {API_URL}</span>
           )}
         </div>
 
@@ -191,7 +195,7 @@ export default function App() {
                 <>
                   <div style={{ fontSize: 32 }}>⚠️</div>
                   <span style={{ fontSize: 14, color: '#ef4444' }}>Backend not running</span>
-                  <span style={{ fontSize: 12 }}>cd backend && npm install && npm start</span>
+                  <span style={{ fontSize: 12 }}>Could not connect to: {API_URL}</span>
                 </>
               )}
             </div>
